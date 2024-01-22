@@ -1,0 +1,18 @@
+name = "DAQIVPlots"
+uuid = "9c8ce99f-48ca-4a68-bd6c-91c3638a5acf"
+authors = ["nowacklab <nowacklab@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
+PeriodicTable = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
+PhysicalConstants = "5ad8b20f-a522-5ce9-bfc9-ddf1d5bda6ab"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
