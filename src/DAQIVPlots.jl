@@ -62,8 +62,8 @@ function main(dn = 0)
     resistance = mean(abs.(in_voltages[1:length(out_currents)] ./ out_currents)) |> u"Ω"
     println("Resistance: $(resistance)")
 
-    #sweeps = parameters["daqiv"]["daqio"]["output"]["signal"]["regenerations"]
-    sweeps = 1
+    sweeps = parameters["daqiv"]["daqio"]["output"]["signal"]["regenerations"]
+    #sweeps = 1
     fig, ax, plt = lines(
         ustrip.(u"μA", repeat(out_currents, sweeps)),
         ustrip.(u"μV", in_voltages[1:sweeps*length(out_currents)])
