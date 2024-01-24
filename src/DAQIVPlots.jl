@@ -6,6 +6,7 @@ using NPZ
 using GLMakie
 using Unitful
 using Statistics
+using KernelDensity
 
 struct OutCoefficients
     c::SVector{2, Float64}
@@ -32,7 +33,7 @@ buffer(c::InCoefficients) = c.c
 in_coeff(c) = Ref(buffer(InCoefficients(c)))
 in_voltage(c, sample::Int16) = c[1] + c[2] * sample + c[3] * sample^2 + c[4] * sample^3
 
-function main(dn = 0)
+function main(dn = 0, plot = true, savefig = true)
     dirs = sort([dir for dir in readdir(sort = false) if startswith(dir, "daqiv-")], rev = true)
     recent = dirs[1 - dn]
     println(recent)
@@ -47,6 +48,8 @@ function main(dn = 0)
     end
 
     parameters = JSON.parsefile(joinpath(recent, "parameters.json"))
+
+    println(parameters["comment"])
 
     bias_resistance = parameters["daqiv"]["daqTriangleCurrentFromZero"]["totalResistanceOhms"] * u"Ω"
     outinvcoeff = out_inv_coeff(parameters["daqiv"]["daqio"]["output"]["calibration"]["coefficients"])
@@ -63,16 +66,83 @@ function main(dn = 0)
     println("Resistance: $(resistance)")
 
     sweeps = parameters["daqiv"]["daqio"]["output"]["signal"]["regenerations"]
-    #sweeps = 1
-    fig, ax, plt = lines(
-        ustrip.(u"μA", repeat(out_currents, sweeps)),
-        ustrip.(u"μV", in_voltages[1:sweeps*length(out_currents)])
-        )
-    ax.xlabel = rich("I = V / R", subscript("b"), " (μA)")
-    ax.ylabel = "V (μV)"
+    quarter_sweep = div(length(out_samples), 4)
 
-    display(fig)
-    return parameters
+    positive_offset = 0*quarter_sweep
+    positive_indices = (1:quarter_sweep) .+ positive_offset
+    positive_transitions = zeros(Int, quarter_sweep)
+    positive_transition_currents = zeros(eltype(out_currents), sweeps)
+    missing_positive_transitions = 0
+
+    negative_offset = 2*quarter_sweep
+    negative_indices = (1:quarter_sweep) .+ negative_offset
+    negative_transitions = zeros(Int, quarter_sweep)
+    negative_transition_currents = zeros(eltype(out_currents), sweeps)
+    missing_negative_transitions = 0
+
+    println(sweeps)
+
+    transition_threshold = 5.0u"mV"
+    for sweep in 1:sweeps
+        positive_sweep_indices = positive_indices .+ (sweep - 1) * length(out_samples)
+        positive_transition_index = findfirst(in_voltages[positive_sweep_indices] .> transition_threshold)
+        if isnothing(positive_transition_index)
+            positive_transition_currents[sweep] = out_currents[1] # Sentinel value
+            missing_positive_transitions += 1
+        else
+            positive_transition_currents[sweep] = out_currents[positive_offset + positive_transition_index]
+            positive_transitions[positive_transition_index] += 1
+        end
+        
+        negative_sweep_indices = negative_indices .+ (sweep - 1) * length(out_samples)
+        negative_transition_index = findfirst(in_voltages[negative_sweep_indices] .< -transition_threshold)
+        if isnothing(negative_transition_index)
+            negative_transition_currents[sweep] = out_currents[1] # Sentinel value
+            missing_negative_transitions += 1
+        else
+            negative_transition_currents[sweep] = out_currents[negative_offset + negative_transition_index]
+            negative_transitions[negative_transition_index] += 1
+        end
+    end
+
+
+    if plot
+        min_transition = findfirst(positive_transitions .> 0)
+        max_transition = findlast(positive_transitions .> 0)
+        span = max_transition - min_transition
+        margin = div(span, 8)
+        plot_indices = (min_transition - margin):(max_transition + margin)
+        fig, ax, plt = lines(
+            ustrip.(u"μA", out_currents[plot_indices .+ positive_offset]),
+            positive_transitions[plot_indices],
+            )
+        ax.xlabel = rich("I = V / R", subscript("b"), " (μA)")
+        ax.ylabel = "Transitions"
+        ax.title = "$(recent)"
+
+        # TODO: KDE not verified to have correct scaling
+        dI = mean(out_currents[positive_indices[2:end]] .- out_currents[positive_indices[1:end-1]])
+        positive_kde = kde_lscv(ustrip.(u"μA", positive_transition_currents))
+        #positive_kde = kde(ustrip.(u"μA", positive_transition_currents), bandwidth = 1e-1)
+        lines!(ax, positive_kde.x, positive_kde.density / ustrip(u"μA", dI))
+        
+        #=
+        fig, ax, plt = lines(
+            ustrip.(u"μA", repeat(out_currents, sweeps)),
+            ustrip.(u"mV", in_voltages[1:sweeps*length(out_currents)])
+            )
+        ax.xlabel = rich("I = V / R", subscript("b"), " (μA)")
+        ax.ylabel = "V (mV)"
+        ax.title = "$(recent)"
+        =#
+
+        display(fig)
+        if savefig
+            save("../plots/$(recent).png", fig, px_per_unit = 4)
+        end
+        return parameters, (fig, ax, plt)
+    end
+    return parameters, nothing
 end
 
 export main
