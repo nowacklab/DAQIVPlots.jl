@@ -109,40 +109,39 @@ function main(dn = 0, plot = true, savefig = true)
     close(in_stream)
 
     if plot
+        #=
         min_transition = findfirst(positive_transitions .> 0)
         max_transition = findlast(positive_transitions .> 0)
         span = max_transition - min_transition
         margin = div(span, 8)
         plot_indices = (min_transition - margin):(max_transition + margin)
-	dI = mean(out_currents[positive_offset .+ plot_indices[2:end]] .- out_currents[positive_offset .+ plot_indices[1:end-1]])
+        dI = mean(out_currents[positive_offset .+ plot_indices[2:end]] .- out_currents[positive_offset .+ plot_indices[1:end-1]])
         fig, ax, plt = lines(
 	    ustrip.(u"μA", out_currents[plot_indices .+ positive_offset]),
 	    positive_transitions[plot_indices] ./ (ustrip(u"μA", dI) * sweeps),
             )
         ax.xlabel = rich("I = V / R", subscript("b"), " (μA)")
-	ax.ylabel = rich("Transition probability density (μA", superscript("-1"), ")")
+        ax.ylabel = rich("Transition probability density (μA", superscript("-1"), ")")
         ax.title = "$(recent)"
 
         positive_kde = kde_lscv(ustrip.(u"μA", positive_transition_currents))
         lines!(ax, positive_kde.x, positive_kde.density)
+        =#
         
-        #=
         fig, ax, plt = lines(
             ustrip.(u"μA", repeat(out_currents, sweeps)),
-            ustrip.(u"mV", in_voltages[1:sweeps*length(out_currents)])
+            in_samples[1:sweeps*length(out_currents)],
             )
         ax.xlabel = rich("I = V / R", subscript("b"), " (μA)")
         ax.ylabel = "V (mV)"
         ax.title = "$(recent)"
-        =#
 
         display(fig)
         if savefig
             save("../plots/$(recent).png", fig, px_per_unit = 4)
         end
-        #return parameters, (fig, ax, plt)
     end
-    return parameters, positive_transitions, positive_kde, dI
+    return parameters
 end
 
 export main
